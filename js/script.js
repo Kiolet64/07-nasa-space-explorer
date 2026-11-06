@@ -21,14 +21,6 @@ function addGalleryItem(item) {
   const card = document.createElement('article');
   card.className = 'gallery-item';
 
-  const title = document.createElement('h2');
-  title.textContent = item.title;
-  card.appendChild(title);
-
-  const date = document.createElement('p');
-  date.textContent = item.date;
-  card.appendChild(date);
-
   if (item.imageUrl) {
     const image = document.createElement('img');
     image.src = item.imageUrl;
@@ -43,6 +35,14 @@ function addGalleryItem(item) {
     videoLink.textContent = 'Watch this APOD video';
     card.appendChild(videoLink);
   }
+
+  const title = document.createElement('h2');
+  title.textContent = item.title;
+  card.appendChild(title);
+
+  const date = document.createElement('p');
+  date.textContent = item.date;
+  card.appendChild(date);
 
   const explanation = document.createElement('p');
   explanation.textContent = item.explanation;
@@ -89,7 +89,7 @@ dateForm.addEventListener('submit', async (event) => {
       title: item.title,
       date: item.date,
       explanation: item.explanation,
-      imageUrl: item.hdurl,
+      imageUrl: item.media_type === 'image' ? item.hdurl || item.url : null,
       mediaType: item.media_type,
       videoUrl: item.media_type === 'video' ? item.url : null,
       copyright: item.copyright
