@@ -48,6 +48,7 @@ function openImageModal(item) {
 function addGalleryItem(item) {
   const card = document.createElement('article');
   card.className = 'gallery-item';
+  let imageLoaded = Promise.resolve();
 
   if (item.imageUrl) {
     const imageButton = document.createElement('button');
@@ -57,19 +58,36 @@ function addGalleryItem(item) {
     imageButton.addEventListener('click', () => openImageModal(item));
 
     const image = document.createElement('img');
-    image.src = item.imageUrl;
     image.alt = item.title;
-    image.loading = 'lazy';
-    image.addEventListener('error', () => {
-      if (item.highResolutionUrl && image.src !== item.highResolutionUrl) {
-        image.src = item.highResolutionUrl;
-        return;
+    image.loading = 'eager';
+    imageLoaded = new Promise((resolve) => {
+      function handleLoad() {
+        image.removeEventListener('error', handleError);
+        resolve();
       }
 
-      const unavailableMessage = document.createElement('span');
-      unavailableMessage.className = 'image-unavailable';
-      unavailableMessage.textContent = 'Image unavailable';
-      imageButton.replaceWith(unavailableMessage);
+      function handleError() {
+        const highResolutionUrl = item.highResolutionUrl
+          ? new URL(item.highResolutionUrl, document.baseURI).href
+          : null;
+
+        if (highResolutionUrl && image.src !== highResolutionUrl) {
+          image.src = highResolutionUrl;
+          return;
+        }
+
+        const unavailableMessage = document.createElement('span');
+        unavailableMessage.className = 'image-unavailable';
+        unavailableMessage.textContent = 'Image unavailable';
+        imageButton.replaceWith(unavailableMessage);
+        image.removeEventListener('load', handleLoad);
+        image.removeEventListener('error', handleError);
+        resolve();
+      }
+
+      image.addEventListener('load', handleLoad);
+      image.addEventListener('error', handleError);
+      image.src = item.imageUrl;
     });
     imageButton.appendChild(image);
     card.appendChild(imageButton);
@@ -84,6 +102,7 @@ function addGalleryItem(item) {
   card.appendChild(date);
 
   gallery.appendChild(card);
+  return imageLoaded;
 }
 
 closeModalButton.addEventListener('click', () => imageModal.close());
@@ -111,7 +130,19 @@ dateForm.addEventListener('submit', async (event) => {
 
   submitButton.disabled = true;
   statusMessage.textContent = 'Loading space images...';
-  gallery.replaceChildren();
+  const loadingMessage = document.createElement('div');
+  loadingMessage.className = 'placeholder loading-placeholder';
+  loadingMessage.setAttribute('role', 'status');
+
+  const loadingSpinner = document.createElement('span');
+  loadingSpinner.className = 'loading-spinner';
+  loadingSpinner.setAttribute('aria-hidden', 'true');
+  loadingMessage.appendChild(loadingSpinner);
+
+  const loadingText = document.createElement('p');
+  loadingText.textContent = 'Your space images are on the way...';
+  loadingMessage.appendChild(loadingText);
+  gallery.replaceChildren(loadingMessage);
 
   try {
     const response = await fetch(`${apodUrl}?${params}`);
@@ -131,10 +162,13 @@ dateForm.addEventListener('submit', async (event) => {
       imageUrl: item.url || item.hdurl || null,
       highResolutionUrl: item.media_type === 'image' ? item.hdurl : null
     }));
-    apodItems.forEach(addGalleryItem);
+    const imageLoads = apodItems.map(addGalleryItem);
+    await Promise.all(imageLoads);
+    loadingMessage.remove();
     statusMessage.textContent = `Showing ${apodItems.length} APOD ${apodItems.length === 1 ? 'entry' : 'entries'}.`;
   } catch (error) {
     statusMessage.textContent = `Unable to load APOD images: ${error.message}`;
+    gallery.replaceChildren();
   } finally {
     submitButton.disabled = false;
   }
