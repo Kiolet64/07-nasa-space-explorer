@@ -128,7 +128,7 @@ dateForm.addEventListener('submit', async (event) => {
       title: item.title,
       date: item.date,
       explanation: item.explanation,
-      imageUrl: item.hdurl || null,
+      imageUrl: item.url || item.hdurl || null,
       highResolutionUrl: item.media_type === 'image' ? item.hdurl : null
     }));
     apodItems.forEach(addGalleryItem);
